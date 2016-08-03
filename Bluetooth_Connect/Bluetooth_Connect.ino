@@ -53,7 +53,7 @@ void loop() {
 // Keep polling over the Peripheral
 BLE_Peripheral.poll();
 
-// If connected then turn LED on  
+// Check BLE connection and turn on LED when connected else OFF  
 if(BLE_Peripheral.connected())
 {
   digitalWrite(connect_led_pin, HIGH);
@@ -66,13 +66,40 @@ else
 //Check if Left button on App is pressed
 if(Left_Button_Characteristic.written())
 {
-  //if(Left_Button_Characteristic.value() == 1)
-  //{
-  //  digitalWrite(left_led_pin, HIGH);
-    Serial.println("Left button pressed with value: ");
-    Serial.println(Left_Button_Characteristic.value());  
-  //}
+  if(Left_Button_Characteristic.value() == 1)
+  {
+    digitalWrite(left_led_pin, HIGH); 
+  }
+  else
+  {
+    digitalWrite(left_led_pin, LOW);
+  }
+}
 
+//Check if Right button on App is pressed
+if(Right_Button_Characteristic.written())
+{
+  if(Right_Button_Characteristic.value() == 1)
+  {
+    digitalWrite(right_led_pin, HIGH); 
+  }
+  else
+  {
+    digitalWrite(right_led_pin, LOW);
+  }
+}
+
+//Check if Accelerate button on App is pressed
+if(Accelerate_Button_Characteristic.written())
+{
+  if(Accelerate_Button_Characteristic.value() == 1)
+  {
+    digitalWrite(accelerate_led_pin, HIGH); 
+  }
+  else
+  {
+    digitalWrite(accelerate_led_pin, LOW);
+  }
 }
 
 }
