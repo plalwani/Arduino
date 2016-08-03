@@ -15,13 +15,16 @@ const int accelerate_led_pin = 10; // pin used for Accelerate button press LED
 
 BLEPeripheral BLE_Peripheral; // BLE peripheral instance
 BLEService Intel_Kart_Service("FF00"); // Creat Intel Kart Service with some uuid
-BLECharacteristic Left_Button_Characteristic("FF01", BLERead | BLEWrite); //Characterisitic for Left button within Intel_Kart_Service
-BLECharacteristic Right_Button_Characteristic("FF02", BLERead | BLEWrite); //Characterisitic for Left button within Intel_Kart_Service
-BLECharacteristic Accelerate_Button_Characteristic("FF03", BLERead | BLEWrite); //Characterisitic for Left button within Intel_Kart_Service
+BLEIntCharacteristic Left_Button_Characteristic("FF01", BLERead | BLEWrite); //Characterisitic for Left button within Intel_Kart_Service
+BLECharCharacteristic Right_Button_Characteristic("FF02", BLERead | BLEWrite); //Characterisitic for Left button within Intel_Kart_Service
+BLECharCharacteristic Accelerate_Button_Characteristic("FF03", BLERead | BLEWrite); //Characterisitic for Left button within Intel_Kart_Service
 
 // Setup Loop
 void setup() 
 {
+// Setting up serial connection
+Serial.begin(9600);
+
 // specifying all LED pins as output  
 pinMode(connect_led_pin, OUTPUT);  
 pinMode(left_led_pin, OUTPUT);  
@@ -30,6 +33,15 @@ pinMode(accelerate_led_pin, OUTPUT);
 
 // Set Local name for BLE Peripheral
 BLE_Peripheral.setLocalName("Intel_Kart_Player_1");
+
+// add service and characterisitics
+BLE_Peripheral.addAttribute(Intel_Kart_Service);
+BLE_Peripheral.addAttribute(Left_Button_Characteristic);
+BLE_Peripheral.addAttribute(Right_Button_Characteristic);
+BLE_Peripheral.addAttribute(Accelerate_Button_Characteristic);
+
+// Start advertising the service
+BLE_Peripheral.begin();
 }
 
 
@@ -46,6 +58,18 @@ if(BLE_Peripheral.connected())
 else
 {
   digitalWrite(connect_led_pin, LOW);
+}
+
+//Check if Left button on App is pressed
+if(Left_Button_Characteristic.written())
+{
+  //if(Left_Button_Characteristic.value() == 1)
+  //{
+  //  digitalWrite(left_led_pin, HIGH);
+    Serial.println("Left button pressed with value: ");
+    Serial.println(Left_Button_Characteristic.value());  
+  //}
+
 }
 
 }
