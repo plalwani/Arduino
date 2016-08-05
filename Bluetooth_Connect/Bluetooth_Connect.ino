@@ -57,50 +57,57 @@ void loop() {
   if (BLE_Peripheral.connected())
   {
     digitalWrite(connect_led_pin, HIGH);
+      //Check if Left button on App is pressed
+    if (Left_Button_Characteristic.written())
+    { 
+      if (Left_Button_Characteristic.value() == 1)
+      {
+        digitalWrite(left_led_pin, HIGH);
+      }
+       else
+      {
+        digitalWrite(left_led_pin, LOW);
+      }
+      Serial.print("left led written\n");  
+
+   }
+
+    //Check if Right button on App is pressed
+    if (Right_Button_Characteristic.written())
+    {
+     if (Right_Button_Characteristic.value() == 1)
+     {
+       digitalWrite(right_led_pin, HIGH);
+     }
+     else
+     {
+        digitalWrite(right_led_pin, LOW);
+     }
+      Serial.print("right led written\n");
+    }
+
+
+   //Check if Accelerate button on App is pressed
+    if (Accelerate_Button_Characteristic.written())
+    {
+      if (Accelerate_Button_Characteristic.value() == 1)
+      {
+          digitalWrite(accelerate_led_pin, HIGH);
+      }
+      else
+      {
+          digitalWrite(accelerate_led_pin, LOW);
+      }
+      Serial.print("accelerate led written\n");  
+   }
   }
   else
   {
     digitalWrite(connect_led_pin, LOW);
-  }
-
-  //Check if Left button on App is pressed
-  if (Left_Button_Characteristic.written())
-  {
-    if (Left_Button_Characteristic.value() == 1)
-    {
-      digitalWrite(left_led_pin, HIGH);
-    }
-    else
-    {
-      digitalWrite(left_led_pin, LOW);
-    }
-
-  }
-
-  //Check if Right button on App is pressed
-  if (Right_Button_Characteristic.written())
-  {
-    if (Right_Button_Characteristic.value() == 1)
-    {
-      digitalWrite(right_led_pin, HIGH);
-    }
-    else
-    {
-      digitalWrite(right_led_pin, LOW);
-    }
+    digitalWrite(accelerate_led_pin, LOW);
+    digitalWrite(right_led_pin, LOW);
+    digitalWrite(left_led_pin, LOW);
   }
 
 
-  //Check if Accelerate button on App is pressed
-  if (Accelerate_Button_Characteristic.written())
-  {
-    if (Accelerate_Button_Characteristic.value() == 1)
-    {
-      digitalWrite(accelerate_led_pin, HIGH);
-    }
-    else
-    {
-      digitalWrite(accelerate_led_pin, LOW);
-    }
-  }
 }
