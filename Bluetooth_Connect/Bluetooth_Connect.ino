@@ -66,11 +66,13 @@ void loop() {
       }
        else
       {
-        digitalWrite(left_led_pin, LOW);
+       digitalWrite(left_led_pin, LOW);
       }
-      Serial.print("left led written\n");  
+     // Serial.print("left led written\n");  
 
-   }
+    //}else{
+    //    digitalWrite(left_led_pin, LOW);
+    }
 
     //Check if Right button on App is pressed
     if (Right_Button_Characteristic.written())
@@ -83,7 +85,7 @@ void loop() {
      {
         digitalWrite(right_led_pin, LOW);
      }
-      Serial.print("right led written\n");
+     // Serial.print("right led written\n");
     }
 
 
@@ -98,7 +100,7 @@ void loop() {
       {
           digitalWrite(accelerate_led_pin, LOW);
       }
-      Serial.print("accelerate led written\n");  
+     // Serial.print("accelerate led written\n");  
    }
   }
   else
