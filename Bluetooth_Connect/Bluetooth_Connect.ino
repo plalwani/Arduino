@@ -14,7 +14,8 @@
 const int connect_led_pin = 13; // pin used for connect status LED
 const int left_led_pin = 12; // pin used for left button press LED
 const int right_led_pin = 11; // pin used for right button press LED
-const int accelerate_led_pin = 10; // pin used for Accelerate button press LED
+const int accelerate_pin = 6; // pwm pin used for driving DC motor i.e. accelerate button
+const int accelerate_pwm_val = 128; // pwm duty cycle for accelerate functionality
 
 BLEPeripheral BLE_Peripheral; // BLE peripheral instance
 BLEService Intel_Kart_Service("da699607-dbc2-4776-82f6-80011575daa0"); // Create Intel Kart Service with some uuid
@@ -32,7 +33,7 @@ void setup()
   pinMode(connect_led_pin, OUTPUT);
   pinMode(left_led_pin, OUTPUT);
   pinMode(right_led_pin, OUTPUT);
-  pinMode(accelerate_led_pin, OUTPUT);
+  // Note: pwm pins don't need to be specified as output
 
   // Set Local name for BLE Peripheral
   BLE_Peripheral.setLocalName("Intel_Kart_Player_1");
@@ -57,56 +58,51 @@ void loop() {
   if (BLE_Peripheral.connected())
   {
     digitalWrite(connect_led_pin, HIGH);
-      //Check if Left button on App is pressed
+
+    //Check if Left button on App is pressed
     if (Left_Button_Characteristic.written())
-    { 
+    {
       if (Left_Button_Characteristic.value() == 1)
       {
         digitalWrite(left_led_pin, HIGH);
       }
-       else
+      else
       {
-       digitalWrite(left_led_pin, LOW);
+        digitalWrite(left_led_pin, LOW);
       }
-     // Serial.print("left led written\n");  
-
-    //}else{
-    //    digitalWrite(left_led_pin, LOW);
     }
 
     //Check if Right button on App is pressed
     if (Right_Button_Characteristic.written())
     {
-     if (Right_Button_Characteristic.value() == 1)
-     {
-       digitalWrite(right_led_pin, HIGH);
-     }
-     else
-     {
+      if (Right_Button_Characteristic.value() == 1)
+      {
+        digitalWrite(right_led_pin, HIGH);
+      }
+      else
+      {
         digitalWrite(right_led_pin, LOW);
-     }
-     // Serial.print("right led written\n");
+      }
     }
 
-
-   //Check if Accelerate button on App is pressed
+    //Check if Accelerate button on App is pressed
     if (Accelerate_Button_Characteristic.written())
     {
       if (Accelerate_Button_Characteristic.value() == 1)
       {
-          digitalWrite(accelerate_led_pin, HIGH);
+        analogWrite(accelerate_pin, accelerate_pwm_val);
       }
       else
       {
-          digitalWrite(accelerate_led_pin, LOW);
+        analogWrite(accelerate_pin, accelerate_pwm_val);
       }
-     // Serial.print("accelerate led written\n");  
-   }
+    }
   }
   else
   {
+    // If BLE disconnected then turn off all LEDs and turn off motor
+    analogWrite(accelerate_pin, accelerate_pwm_val);
     digitalWrite(connect_led_pin, LOW);
-    digitalWrite(accelerate_led_pin, LOW);
     digitalWrite(right_led_pin, LOW);
     digitalWrite(left_led_pin, LOW);
   }
