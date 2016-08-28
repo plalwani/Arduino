@@ -40,14 +40,15 @@
 //#define EnableStepper             0x1a
 //#define UnenableStepper           0x1b
 //#define Stepernu                  0x1c
-#define I2CMotorDriverAdd_f         0x0f   // Set the address of the I2CMotorDriver
-#define I2CMotorDriverAdd_b         0x0a   // Set the address of the I2CMotorDriver
+#define I2CMotorDriverAdd_f         0x0f   // Set the address of the I2CMotorDriver - front
+#define I2CMotorDriverAdd_b         0x0a   // Set the address of the I2CMotorDriver - back
 
 //////////////////////////////////////////////////////////////////////
 //Function to set the 2 DC motor speed
 //motorSpeedA : the DC motor A speed; should be 0~100;
 //motorSpeedB: the DC motor B speed; should be 0~100;
 
+// Procedures for the motors in the front
 void MotorSpeedSetAB_f(unsigned char MotorSpeedA , unsigned char MotorSpeedB)  {
   MotorSpeedA=map(MotorSpeedA,0,100,0,255);
   MotorSpeedB=map(MotorSpeedB,0,100,0,255);
@@ -57,14 +58,7 @@ void MotorSpeedSetAB_f(unsigned char MotorSpeedA , unsigned char MotorSpeedB)  {
   Wire.write(MotorSpeedB);              // send pwmb    
   Wire.endTransmission();    // stop transmitting
 }
-//set the prescale frequency of PWM, 0x03 default;
-//void MotorPWMFrequenceSet_f(unsigned char Frequence)  {    
-//  Wire.beginTransmission(I2CMotorDriverAdd_f); // transmit to device I2CMotorDriverAdd
-//  Wire.write(PWMFrequenceSet);        // set frequence header
-//  Wire.write(Frequence);              //  send frequence 
-//  Wire.write(Nothing);              //  need to send this byte as the third byte(no meaning)  
-//  Wire.endTransmission();    // stop transmitting
-//}
+
 //set the direction of DC motor. 
 void MotorDirectionSet_f(unsigned char Direction)  {     //  Adjust the direction of the motors 0b0000 I4 I3 I2 I1
   Wire.beginTransmission(I2CMotorDriverAdd_f); // transmit to device I2CMotorDriverAdd
@@ -79,6 +73,8 @@ void MotorDriectionAndSpeedSet_f(unsigned char Direction,unsigned char MotorSpee
   MotorSpeedSetAB_f(MotorSpeedA,MotorSpeedB);  
 }
 
+// Procedures for motors at the back
+
 void MotorSpeedSetAB_b(unsigned char MotorSpeedA , unsigned char MotorSpeedB)  {
   MotorSpeedA=map(MotorSpeedA,0,100,0,255);
   MotorSpeedB=map(MotorSpeedB,0,100,0,255);
@@ -88,14 +84,7 @@ void MotorSpeedSetAB_b(unsigned char MotorSpeedA , unsigned char MotorSpeedB)  {
   Wire.write(MotorSpeedB);              // send pwmb    
   Wire.endTransmission();    // stop transmitting
 }
-//set the prescale frequency of PWM, 0x03 default;
-//void MotorPWMFrequenceSet_f(unsigned char Frequence)  {    
-//  Wire.beginTransmission(I2CMotorDriverAdd_f); // transmit to device I2CMotorDriverAdd
-//  Wire.write(PWMFrequenceSet);        // set frequence header
-//  Wire.write(Frequence);              //  send frequence 
-// Wire.write(Nothing);              //  need to send this byte as the third byte(no meaning)  
-//  Wire.endTransmission();    // stop transmitting
-//}
+
 //set the direction of DC motor. 
 void MotorDirectionSet_b(unsigned char Direction)  {     //  Adjust the direction of the motors 0b0000 I4 I3 I2 I1
   Wire.beginTransmission(I2CMotorDriverAdd_b); // transmit to device I2CMotorDriverAdd
@@ -174,14 +163,14 @@ void loop() {
       if (Left_Button_Characteristic.value() == 1)
       {
         digitalWrite(left_led_pin, HIGH);
-        MotorDriectionAndSpeedSet_f(0b0110,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-        MotorDriectionAndSpeedSet_b(0b0110,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_f(0b1010,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_b(0b1010,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
       }
        else
       {
         digitalWrite(left_led_pin, LOW);
-        MotorDriectionAndSpeedSet_f(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-        MotorDriectionAndSpeedSet_b(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_f(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_b(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
       }
      // Serial.print("left led written\n");  
 
@@ -195,14 +184,14 @@ void loop() {
      if (Right_Button_Characteristic.value() == 1)
      {
        digitalWrite(right_led_pin, HIGH);
-        MotorDriectionAndSpeedSet_f(0b1001,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-        MotorDriectionAndSpeedSet_b(0b1001,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive"  
+        MotorDriectionAndSpeedSet_f(0b0101,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_b(0b0101,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive"  
      }
      else
      {
         digitalWrite(right_led_pin, LOW);
-        MotorDriectionAndSpeedSet_f(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-        MotorDriectionAndSpeedSet_b(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_f(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+        MotorDriectionAndSpeedSet_b(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
      }
      // Serial.print("right led written\n");
     }
@@ -214,14 +203,14 @@ void loop() {
       if (Accelerate_Button_Characteristic.value() == 1)
       {
           digitalWrite(accelerate_led_pin, HIGH);
-          MotorDriectionAndSpeedSet_f(0b1010,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-          MotorDriectionAndSpeedSet_f(0b1010,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-      }
+           MotorDriectionAndSpeedSet_b(0b1001,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+          MotorDriectionAndSpeedSet_f(0b1001,100,100);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+       }
       else
       {
           digitalWrite(accelerate_led_pin, LOW);
-          MotorDriectionAndSpeedSet_f(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-          MotorDriectionAndSpeedSet_b(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+          MotorDriectionAndSpeedSet_f(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+          MotorDriectionAndSpeedSet_b(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
       }
      // Serial.print("accelerate led written\n");  
    }
@@ -232,8 +221,8 @@ void loop() {
     digitalWrite(accelerate_led_pin, LOW);
     digitalWrite(right_led_pin, LOW);
     digitalWrite(left_led_pin, LOW);
-    MotorDriectionAndSpeedSet_f(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
-    MotorDriectionAndSpeedSet_f(0b1010,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+    MotorDriectionAndSpeedSet_f(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
+    MotorDriectionAndSpeedSet_b(0b1001,0,0);//defines the direction and speed of the forward left and forward right motors."0b1010" defines the output polarity, "10" means the M+ is "positive" while the M- is "negtive" 
   }
 
 
