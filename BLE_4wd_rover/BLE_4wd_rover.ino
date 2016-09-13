@@ -49,17 +49,16 @@
 // Note: Bit 0 and 1 should be a complement and Bit 1 and 2 should be complement
 void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char MotorSpeedB, unsigned char Direction, unsigned char I2C_MotorDriver_Addr)
 {
-
   //Convert 0-100% to analog values 0-255
   MotorSpeedA = map(MotorSpeedA, 0, 100, 0, 255);
   MotorSpeedB = map(MotorSpeedB, 0, 100, 0, 255);
-
+  
   // Speed
   Wire.beginTransmission(I2C_MotorDriver_Addr); // transmit to specified address
   Wire.write(MotorSpeedSet);                    // set pwm header
   Wire.write(MotorSpeedA);                      // send pwma
   Wire.write(MotorSpeedB);                      // send pwmb
-  Wire.endTransmission();               	// stop transmitting
+  Wire.endTransmission();               	      // stop transmitting
 
   // Direction
   Wire.beginTransmission(I2C_MotorDriver_Addr); // transmit to device I2CMotorDriverAdd
@@ -67,7 +66,6 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
   Wire.write(Direction);                        // send direction control information
   Wire.write(Nothing);                          // need to send this byte as the third byte(no meaning)
   Wire.endTransmission();                       // stop transmitting
-
 }
 
 
@@ -82,8 +80,8 @@ const int connect_led_pin = 13; // pin used for connect status LED
 // BLE handle and definitions //
 ///////////////////////////////
 
-BLEPeripheral BLE_Peripheral; // BLE peripheral instance
-BLEService Intel_4wd_Rover_Service("da699607-dbc2-4776-82f6-80011575daa0"); // Create Intel  4wd Rover Service with some uuid
+BLEPeripheral BLE_Peripheral;                                                                              // BLE peripheral instance
+BLEService Intel_4wd_Rover_Service("da699407-dbc2-4776-82f6-80011575daa0");                                // Create Intel  4wd Rover Service with some uuid
 BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite); //Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
 
 
@@ -93,12 +91,14 @@ BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d8
 
 void setup()
 {
-
   // Setting up serial connection
-  Serial.begin(9600);
-
-  Wire.begin(); // join i2c bus (address optional for master)
-  delayMicroseconds(10000); // wait to make sure I2C is initialized
+  Serial.begin(9400);
+  
+  // join i2c bus (address optional for master)
+  Wire.begin(); 
+  
+  // wait to make sure I2C is initialized
+  delayMicroseconds(10000); 
 
   // specifying LED pin as output
   pinMode(connect_led_pin, OUTPUT);
@@ -112,7 +112,6 @@ void setup()
 
   // Start advertising the service
   BLE_Peripheral.begin();
-
 }
 
 
@@ -130,48 +129,46 @@ void loop()
   if (BLE_Peripheral.connected())
   {
     digitalWrite(connect_led_pin, HIGH);
-    //Check if Left button on App is pressed
+    //Check if Directional buttons on App are pressed
     if (Direction_Characteristic.written())
     {
       switch (Direction_Characteristic.value())
       {
-
       case 1:
       {
         // UP
-        Set_MotorSpeed_and_direction(60, 60, 1010, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(60, 60, 1010, I2CMotorDriver_left_Addr);
+        Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_right_Addr);
+        Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_left_Addr);
         break;
       }
       case 2:
       {
         // RIGHT
-        Set_MotorSpeed_and_direction(100, 100, 1010, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(1, 1, 0101, I2CMotorDriver_left_Addr);
+        Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_right_Addr);
+        Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_left_Addr);
         break;
       }
       case 3:
       {
         // DOWN
-        Set_MotorSpeed_and_direction(60, 60, 0101, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(60, 60, 0101, I2CMotorDriver_left_Addr);
+        Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_right_Addr);
+        Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_left_Addr);
         break;
       }
       case 4:
       {
         // LEFT
-        Set_MotorSpeed_and_direction(1, 1, 0101, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(100, 100, 1010, I2CMotorDriver_left_Addr);
+        Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_right_Addr);
+        Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_left_Addr);
         break;
       }
       default:
       {
         // OFF
-        Set_MotorSpeed_and_direction(0, 0, 1010, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(0, 0, 1010, I2CMotorDriver_left_Addr);
+        Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+        Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
         break;
       }
-
       } // switch  
     } // if(Direction_Characteristic.written())
   } // if (BLE_Peripheral.connected())
@@ -180,8 +177,8 @@ void loop()
     // Turn off connection LED
     digitalWrite(connect_led_pin, LOW);
     // Turn off all Motors (to be safe)
-    Set_MotorSpeed_and_direction(0, 0, 1010, I2CMotorDriver_right_Addr);
-    Set_MotorSpeed_and_direction(0, 0, 1010, I2CMotorDriver_left_Addr);
+    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
   } 
 } // void loop()
 
