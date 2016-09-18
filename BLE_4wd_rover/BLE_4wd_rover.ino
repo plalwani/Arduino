@@ -81,8 +81,9 @@ const int connect_led_pin = 13; // pin used for connect status LED
 ///////////////////////////////
 
 BLEPeripheral BLE_Peripheral;                                                                              // BLE peripheral instance
-BLEService Intel_4wd_Rover_Service("da699407-dbc2-4776-82f6-80011575daa0");                                // Create Intel  4wd Rover Service with some uuid
-BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite); //Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
+BLEService Intel_4wd_Rover_Service("da699607-dbc2-4776-82f6-80011575daa0");                                // Create Intel  4wd Rover Service with some uuid
+BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite); // Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
+BLEIntCharacteristic PowerUp_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11c2fd", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
 
 
 /////////////////
@@ -92,7 +93,7 @@ BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d8
 void setup()
 {
   // Setting up serial connection
-  Serial.begin(9400);
+  Serial.begin(9600);
   
   // join i2c bus (address optional for master)
   Wire.begin(); 
@@ -109,6 +110,7 @@ void setup()
   // add service and characterisitics
   BLE_Peripheral.addAttribute(Intel_4wd_Rover_Service);
   BLE_Peripheral.addAttribute(Direction_Characteristic);
+  BLE_Peripheral.addAttribute(PowerUp_Characteristic);
 
   // Start advertising the service
   BLE_Peripheral.begin();
@@ -137,6 +139,7 @@ void loop()
       case 1:
       {
         // UP
+        Serial.println("Moving Forward");
         Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_right_Addr);
         Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_left_Addr);
         break;
@@ -144,6 +147,7 @@ void loop()
       case 2:
       {
         // RIGHT
+        Serial.println("Moving Right");
         Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_right_Addr);
         Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_left_Addr);
         break;
@@ -151,6 +155,7 @@ void loop()
       case 3:
       {
         // DOWN
+        Serial.println("Moving Backwards");
         Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_right_Addr);
         Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_left_Addr);
         break;
@@ -158,6 +163,7 @@ void loop()
       case 4:
       {
         // LEFT
+        Serial.println("Moving Left");
         Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_right_Addr);
         Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_left_Addr);
         break;
@@ -181,4 +187,3 @@ void loop()
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
   } 
 } // void loop()
-
