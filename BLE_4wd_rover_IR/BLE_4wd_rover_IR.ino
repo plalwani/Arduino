@@ -1,12 +1,4 @@
-void setup() {
-  // put your setup code here, to run once:
-
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
-
-}// Author: Prashant Lalwani and Purval Sule
+// Author: Prashant Lalwani and Purval Sule
 
 // This code drives 4 sets of motor on a 4WD rover using a grove I2C motor driver shield
 // and an app built using mit app inventor available here:
@@ -68,11 +60,11 @@ const int pattern = 4 ; // No. of alternating stripes
 
 int count = 0;
 int prev = 0, next =0;
-int poserup_picked =0; 
+int powerup_picked =0; 
 int calibration_done = 0;
 
-int threshold_black;// < ~100
-int threshold_white;// > ~900
+int threshold_black; //= 200 ( < ~200 )
+int threshold_white;// = 900 ( > ~900 ) 
 
 //////////////////////////////////////
 // Motor Speed  and direction task //
@@ -248,7 +240,7 @@ void loop()
 
 ***********************************************************/
   
-  delay(smpl);// wait for a hundredth of a second and log values
+  //delay(smpl);// wait for a hundredth of a second and log values
   //delay(1000); // For test
   i = analogRead(ir_ana_in);
   //Serial.print("Analog Value is: "); // For test
@@ -257,7 +249,7 @@ void loop()
 // We know ambient is reflecting
 //  if (ambient == 1){
 
-if (powerup_picked == 0){ // Comment out this line if getting confused. Code will still work fine 
+//if (powerup_picked == 0){ // Comment out this line if getting confused. Code will still work fine 
   if (i < threshold_black){ // This is the exception i.e black
        next = 1;
        if (prev != next){
@@ -284,7 +276,7 @@ if (powerup_picked == 0){ // Comment out this line if getting confused. Code wil
   } else {
       digitalWrite(led_thresh, LOW);
   } // if (count == pattern)
-} // If powerup_picked == 0
+//} // If powerup_picked == 0
 
   
   } // if (BLE_Peripheral.connected())
