@@ -40,6 +40,12 @@
 #define I2CMotorDriver_right_Addr 0x0f   // Set the address of the I2CMotorDriver - right
 #define I2CMotorDriver_left_Addr  0x01   // Set the address of the I2CMotorDriver - left
 
+
+// Parameters for black and white
+
+#define color_black               1
+#define color_white               0
+
 ///////////////
 // Pin list //
 /////////////
@@ -47,7 +53,7 @@
 const int connect_led_pin = 13; // pin used for connect status LED
 const int ir_ana_in = 0;  // Analog input from IR receiver 
 const int led_thresh = 2; // LED to indicate if the power up is received/sensed from the IR circuit
-
+const int laser_diode = 2;
 //////////////////////////////////
 // Global Variables Init
 /////////////////////////////////
@@ -56,12 +62,16 @@ const int led_thresh = 2; // LED to indicate if the power up is received/sensed 
 int i;
 
 //const int ambient = 1 ; // does ambient reflect ( 0 == less than) or absorb (1 == greater than)
-const int pattern = 4 ; // No. of alternating stripes
+const int transitions = 4 ; // No. of alternating stripes
+const int powerup_detect_interval = 1200; // Amount of time for which Curie must advertise that powerup has been picked for the App to register
+const int laser_interval = 5000; // LED on for 5 seconds
 
 int count = 0;
-int prev = 0, next =0;
-int powerup_picked =0; 
+int prev_color = 0, next_color = 0;
+int powerup_picked = 0; 
 int calibration_done = 0;
+long int current_time , previous_time;
+
 
 int threshold_black; //= 200 ( < ~200 )
 int threshold_white;// = 900 ( > ~900 ) 
@@ -113,7 +123,6 @@ void calibrate(){
 }
 
 
-
 /////////////////////////////////
 // BLE handle and definitions //
 ///////////////////////////////
@@ -150,6 +159,9 @@ void setup()
   BLE_Peripheral.addAttribute(Direction_Characteristic);
   BLE_Peripheral.addAttribute(PowerUp_Characteristic);
 
+  // Reset calibration 
+  calibration_done = 0;
+  
   // Start advertising the service
   BLE_Peripheral.begin();
 }
@@ -227,6 +239,17 @@ void loop()
  * Reset the powerup_picked variable here  - if characteristic is written 
  * 
  */
+    if(PowerUp_Characteristic.written())
+    {
+        if(PowerUp_Characteristic.value() == 2)
+       {
+         Serial.println("Pew Pew");
+         digitalWrite(laser_diode, HIGH);       
+         // Add pew pew code here
+         previous_time = millis();
+       }
+    }
+
 
 // end of code for laser characteristic
  
@@ -249,34 +272,52 @@ void loop()
 // We know ambient is reflecting
 //  if (ambient == 1){
 
-//if (powerup_picked == 0){ // Comment out this line if getting confused. Code will still work fine 
-  if (i < threshold_black){ // This is the exception i.e black
-       next = 1;
-       if (prev != next){
+  if (powerup_picked == 0){ // Comment out this line if getting confused. Code will still work fine 
+    if (i < threshold_black){ // This is the exception i.e black
+       next_color = 1;
+       if (prev_color != next_color){
           count++;
           Serial.print("Count is :");
           Serial.println(count);
         }
-        prev = 1;
-  }// if (i < threshold_black)  
+        prev_color = 1;
+    }// if (i < threshold_black)  
 
-  if (i > threshold_white){ // Get ready for sensing next black only if a white comes in between
-        next = 0;
-        prev = 0;
-  } // if (i > threshold_white)
+    if (i > threshold_white){ // Get ready for sensing next black only if a white comes in between
+        next_color = 0;
+        prev_color = 0;
+    } // if (i > threshold_white)
 
-  if( count == pattern){
-       digitalWrite(led_thresh, HIGH);
-       delay(400);
+    if( count == transitions){
+       //digitalWrite(led_thresh, HIGH);
+       // delay(400);
        // Here write to the laser characteristic. Enable laser in the app 
        count = 0;
-       prev  = 0;
-       next  = 0;
-       powerup_picked = 1; 
-  } else {
+       prev_color  = 0;
+       next_color  = 0;
+       powerup_picked = 1;
+       PowerUp_Characteristic.setValue(1);
+       previous_time = millis(); 
+    } else {
       digitalWrite(led_thresh, LOW);
-  } // if (count == pattern)
-//} // If powerup_picked == 0
+    } // if (count == transitions)
+  } // If powerup_picked == 0
+
+  if (powerup_picked == 1){
+      if (PowerUp_Characteristic.value() == 1){ // Don't want the value of 2 to be overwritten with 0
+        current_time = millis();
+        if (current_time - previous_time  > powerup_detect_interval){          
+          PowerUp_Characteristic.setValue(0);
+        }
+      } else if (PowerUp_Characteristic.value() == 2){
+        current_time = millis();
+        if (current_time - previous_time  > laser_interval){          
+          PowerUp_Characteristic.setValue(0);
+          digitalWrite(laser_diode, LOW);
+          powerup_picked = 0;
+          }
+      }
+  }
 
   
   } // if (BLE_Peripheral.connected())
@@ -288,18 +329,37 @@ void loop()
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
     // Reset variables and restart at the black hole :)
-    calibration_done = 0;
+    //calibration_done = 0;
     count = 0;
-    prev  = 0;
-    next  = 0;
+    prev_color  = 0;
+    next_color  = 0;
+    powerup_picked = 0;
   } 
 } // void loop()
 
 
+/*
+millis();
 
+// debug code, to be removed
+    if(digitalRead(debug_pin))
+    {
+      PowerUp_Characteristic.setValue(1);
+      Serial.println("Button pressed");
+    }
+    else
+    {
+      PowerUp_Characteristic.setValue(0);
+    }
 
-
-
-
+    if(PowerUp_Characteristic.written())
+    {
+      if(PowerUp_Characteristic.value() == 2)
+      {
+        Serial.println("Pew Pew");
+        // Add pew pew code here
+      }
+    }
+*/
 
  
