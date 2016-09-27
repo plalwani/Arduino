@@ -249,10 +249,6 @@ void loop()
   {
     PowerUp_Characteristic.setValue(1);
   }
-  else
-  {
-    PowerUp_Characteristic.setValue(0);
-  }
 
 } // void loop()
 
