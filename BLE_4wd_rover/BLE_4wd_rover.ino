@@ -40,6 +40,32 @@
 #define I2CMotorDriver_left_Addr  0x01   // Set the address of the I2CMotorDriver - left
 
 
+///////////////
+// Pin list //
+/////////////
+
+const int connect_led_pin = 13; // pin used for connect status LED
+const int ir_receiver_pin = 0;
+const int power_up_led_pin = 12;
+const int laser_diode_pin = 2;
+
+
+///////////////////////
+// Global Variables //
+/////////////////////
+
+const int color_transitions = 4; // powerup pattern (black and white stripes)
+const int laser_interval = 5000; // laser turn on interval
+int color_transition_count = 0;
+int black_color_detected;
+int white_color_detected;
+int IR_receiver_reading; 
+int calibration_done = 0;
+long int current_time, previous_time;
+int black_color_threshold; // < ~200
+int white_color_threshold; // > ~900 
+
+
 //////////////////////////////////////
 // Motor Speed  and direction task //
 ////////////////////////////////////
@@ -69,12 +95,33 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
 }
 
 
-///////////////
-// Pin list //
-/////////////
+///////////////////////
+// Calibration task //
+/////////////////////
 
-const int connect_led_pin = 13; // pin used for connect status LED
+// Task to Calibrate black threshold using a black sheet of paper before operating
+void IR_calibration()
+{
+  int avg = 0; int sum = 0; int a;
+  for(a = 1; a < 1001; a++)
+  {
+     sum = sum + analogRead(ir_receiver_pin);
+     delay(1);  
+  }
 
+    // white numbers are usually higher. 150 and 750 are arbitrary number
+    avg = sum/a;
+    black_color_threshold = avg + 150;
+    white_color_threshold = avg + 750;
+
+    Serial.print("Black color threshold: ");
+    Serial.println(black_color_threshold);
+
+    Serial.print("White color threshold: ");
+    Serial.println(white_color_threshold);
+
+    calibration_done = 1;
+}
 
 /////////////////////////////////
 // BLE handle and definitions //
@@ -99,10 +146,16 @@ void setup()
   Wire.begin(); 
   
   // wait to make sure I2C is initialized
-  delayMicroseconds(10000); 
+  delayMicroseconds(2000); 
 
-  // specifying LED pin as output
+  // specifying connection LED pin as output
   pinMode(connect_led_pin, OUTPUT);
+  
+  // specifying power up LED pin as output 
+  pinMode(power_up_led_pin, OUTPUT);
+ 
+  // specifying laser diode pin as output
+  pinMode(laser_diode_pin, OUTPUT);
 
   // Set Local name for BLE Peripheral
   BLE_Peripheral.setLocalName("Intel_4WD_Rover_1");
@@ -130,9 +183,76 @@ void loop()
   // Check BLE connection and turn on LED when connected else OFF
   if (BLE_Peripheral.connected())
   {
+    if(calibration_done == 0)
+    {
+       IR_calibration();
+    }
+    
+    // Turn on connection LED
     digitalWrite(connect_led_pin, HIGH);
+    
     //Check if Directional buttons on App are pressed
-    if (Direction_Characteristic.written())
+    Rover_Direction_Control();
+    
+  } // if (BLE_Peripheral.connected())
+  else
+  {
+    // Turn off connection LED
+    digitalWrite(connect_led_pin, LOW);
+
+    // Turn off all Motors (to be safe)
+    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
+  } 
+
+  // If App writes to powerup characteristic
+  if(PowerUp_Characteristic.written() && (PowerUp_Characteristic.value() == 2))
+  {
+     Serial.println("Laser Fired");
+     digitalWrite(laser_diode_pin, HIGH);       
+     
+     // non blocking delay to keep laser on for a set duration
+     previous_time = millis();
+  }
+
+  current_time = millis();
+  if(current_time >= previous_time + laser_interval)
+  {
+    Serial.println("Laser turned off");
+    digitalWrite(laser_diode_pin, LOW);       
+  }
+
+  // IR receiver logic to detect color transitions
+  IR_receiver_reading = analogRead(ir_receiver_pin);
+  if(IR_receiver_reading < black_color_threshold)
+  {
+     black_color_detected = 1;
+  }
+  else if(IR_receiver_reading > white_color_threshold)
+  {
+     white_color_detected = 1;
+  }
+
+  if(white_color_detected && black_color_detected)
+  {
+     color_transition_count++; 
+     Serial.print("Count: ");
+     Serial.println(color_transition_count);
+
+     white_color_detected = 0;
+     black_color_detected = 0;
+  }
+
+} // void loop()
+
+
+//////////////////////////////
+// Rover Direction Control //
+////////////////////////////
+
+void Rover_Direction_Control()
+{
+if (Direction_Characteristic.written())
     {
       switch (Direction_Characteristic.value())
       {
@@ -177,13 +297,4 @@ void loop()
       }
       } // switch  
     } // if(Direction_Characteristic.written())
-  } // if (BLE_Peripheral.connected())
-  else
-  {
-    // Turn off connection LED
-    digitalWrite(connect_led_pin, LOW);
-    // Turn off all Motors (to be safe)
-    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
-    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
-  } 
-} // void loop()
+}
