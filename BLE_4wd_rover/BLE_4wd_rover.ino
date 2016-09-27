@@ -44,10 +44,10 @@
 // Pin list //
 /////////////
 
-const int connect_led_pin = 13; // pin used for connect status LED
-const int ir_receiver_pin = 0;
-const int power_up_led_pin = 12;
-const int laser_diode_pin = 2;
+const int connect_led_pin = 13;  // pin used for connect status LED
+const int ir_receiver_pin = 0;   // pin being used to read from IR receiver
+const int power_up_led_pin = 12; // pin used for powerup notification (may not get used)
+const int laser_diode_pin = 2;   // pin used for connecting laser powerup
 
 
 ///////////////////////
@@ -56,15 +56,17 @@ const int laser_diode_pin = 2;
 
 const int color_transitions = 4; // powerup pattern (black and white stripes)
 const int laser_interval = 5000; // laser turn on interval
-int color_transition_count = 0;
-int black_color_detected;
-int white_color_detected;
-int IR_receiver_reading;
-int calibration_done = 0;
-long int current_time, previous_time;
-int black_color_threshold; // < ~200
-int white_color_threshold; // > ~900
-int laser_on = 0;
+int color_transition_count = 0;  // counter to count the # of transitions of black/white color pair
+int black_color_detected = 0;    // black color detection flag
+int white_color_detected = 0;    // white color detection flag
+int IR_receiver_reading = 0;     // used for reading IR receiver
+int calibration_done = 0;        // calibration completion flag
+long int current_time = 0;
+long int previous_time = 0;
+int black_color_threshold = 0; // < ~200, actual values come from calibration
+int white_color_threshold = 0; // > ~900, actual values come from calibration
+int laser_on = 0;              // laser powerup used flag
+int powerup_received = 0;      // flag to monitor laser powerup
 
 //////////////////////////////////////
 // Motor Speed  and direction task //
@@ -103,6 +105,7 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
 void IR_calibration()
 {
   int avg = 0; int sum = 0; int a;
+
   for (a = 1; a < 1001; a++)
   {
     sum = sum + analogRead(ir_receiver_pin);
@@ -111,14 +114,41 @@ void IR_calibration()
 
   // white numbers are usually higher. 150 and 750 are arbitrary number
   avg = sum / a;
-  black_color_threshold = avg + 150;
-  white_color_threshold = avg + 750;
-
-  Serial.print("Black color threshold: ");
-  Serial.println(black_color_threshold);
+  white_color_threshold = avg - 20 ;
 
   Serial.print("White color threshold: ");
   Serial.println(white_color_threshold);
+
+  avg = 0;
+  sum = 0;
+
+  Serial.println("Moving Forward");
+  Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_right_Addr);
+  Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_left_Addr);
+
+  // Move forward till you find black
+  while (analogRead(ir_receiver_pin) > 300) {
+    avg = 0;
+  }
+
+  Serial.println("Stopping");
+  Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+  Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
+
+  delay(500);
+
+  for (a = 1; a < 1001; a++)
+  {
+    sum = sum + analogRead(ir_receiver_pin);
+    delay(1);
+  }
+
+  // white numbers are usually higher. 150 and 750 are arbitrary number
+  avg = sum / a;
+  black_color_threshold = avg + 20 ;
+
+  Serial.print("Black color threshold: ");
+  Serial.println(black_color_threshold);
 
   calibration_done = 1;
 }
@@ -180,9 +210,10 @@ void loop()
   // Keep polling over the Peripheral
   BLE_Peripheral.poll();
 
-  // Check BLE connection and turn on LED when connected else OFF
+  // Check BLE connection before executing any code
   if (BLE_Peripheral.connected())
   {
+    // do IR calibration to get threshold values
     if (calibration_done == 0)
     {
       IR_calibration();
@@ -200,17 +231,18 @@ void loop()
       Serial.println("Laser Fired");
       digitalWrite(laser_diode_pin, HIGH);
       laser_on = 1;
-
       // non blocking delay to keep laser on for a set duration
       previous_time = millis();
     }
-
     current_time = millis();
+    // Turn off laser after set amount of time
     if ((current_time >= previous_time + laser_interval) && laser_on)
     {
       Serial.println("Laser turned off");
       digitalWrite(laser_diode_pin, LOW);
       laser_on = 0;
+      powerup_received = 0;
+      color_transition_count = 0;
     }
 
     // IR receiver logic to detect color transitions
@@ -234,10 +266,10 @@ void loop()
       black_color_detected = 0;
     }
 
-    if (color_transition_count == color_transitions)
+    if ((color_transition_count == color_transitions) && (powerup_received == 0))
     {
       PowerUp_Characteristic.setValue(1);
-      color_transition_count = 0;
+      powerup_received = 1;
     }
 
   } // if (BLE_Peripheral.connected())
