@@ -64,7 +64,7 @@ int calibration_done = 0;
 long int current_time, previous_time;
 int black_color_threshold; // < ~200
 int white_color_threshold; // > ~900 
-
+int laser_on = 0;
 
 //////////////////////////////////////
 // Motor Speed  and direction task //
@@ -210,25 +210,27 @@ void loop()
   {
      Serial.println("Laser Fired");
      digitalWrite(laser_diode_pin, HIGH);       
+     laser_on = 1;
      
      // non blocking delay to keep laser on for a set duration
      previous_time = millis();
   }
 
   current_time = millis();
-  if(current_time >= previous_time + laser_interval)
+  if((current_time >= previous_time + laser_interval) && laser_on)
   {
     Serial.println("Laser turned off");
-    digitalWrite(laser_diode_pin, LOW);       
+    digitalWrite(laser_diode_pin, LOW);
+    laser_on = 0;       
   }
 
   // IR receiver logic to detect color transitions
   IR_receiver_reading = analogRead(ir_receiver_pin);
-  if(IR_receiver_reading < black_color_threshold)
+  if((IR_receiver_reading < black_color_threshold) && calibration_done)
   {
      black_color_detected = 1;
   }
-  else if(IR_receiver_reading > white_color_threshold)
+  else if((IR_receiver_reading > white_color_threshold) && calibration_done)
   {
      white_color_detected = 1;
   }
@@ -241,6 +243,15 @@ void loop()
 
      white_color_detected = 0;
      black_color_detected = 0;
+  }
+
+  if(color_transition_count == color_transitions)
+  {
+    PowerUp_Characteristic.setValue(1);
+  }
+  else
+  {
+    PowerUp_Characteristic.setValue(0);
   }
 
 } // void loop()
