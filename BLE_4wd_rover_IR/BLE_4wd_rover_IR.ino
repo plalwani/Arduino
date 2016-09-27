@@ -104,22 +104,74 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
   Wire.endTransmission();                       // stop transmitting
 }
 
-// Calibrate on big black dot away from people
+// Calibrate on both black and white. We start on white and move forward and check black.
 void calibrate(){
-  int avg = 0; int sum = 0;
-  for(int a=1;a<1000;a++){
-     sum = sum + analogRead(ir_ana_in);
-     avg = sum/a;
-     //avg = ((avg * (a-1)) + analogRead(ir_ana_in))/a;   
-     delay(1);  
-  }
-    threshold_black = avg + 150;
-    threshold_white = avg + 750;
+    int avg = 0; int sum = 0;
+
+// test code
+/*   while(1){
+      Serial.print("Analog reading is :");
+      Serial.println(analogRead(ir_ana_in));
+      delay(1000);  
+    }
+*/
+
+    for(int a=1;a<1000;a++){
+      sum = sum + analogRead(ir_ana_in);
+      //avg = ((avg * (a-1)) + analogRead(ir_ana_in))/a;   
+      delay(1);  
+    }
+    avg = sum/1000;
+    threshold_white = avg - 20 ;
+    Serial.print("Threshold white is :");
+    Serial.println(threshold_white);
+
+    avg = 0;
+    sum = 0;
+
+   Serial.println("Moving Forward");
+   Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_right_Addr);
+   Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_left_Addr);  
+
+    // UP
+    while(analogRead(ir_ana_in) > 300){
+        avg = 0;
+    }
+    
+    Serial.println("Stopping");
+    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+    Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
+    
+    delay(500);
+// Replace above line with delay(); for alternative implementation
+//    delay();
+    
+    for(int a=1;a<1000;a++){
+      sum = sum + analogRead(ir_ana_in);
+      //avg = ((avg * (a-1)) + analogRead(ir_ana_in))/a;   
+      delay(1);  
+    }
+    avg = sum/1000;
+    threshold_black = avg + 20 ;
+
+    avg = 0;
+    sum = 0;
+    
+    
+
+    Serial.print("Threshold black is :");
+    Serial.println(threshold_black);
+
+// Test code 
+/*while(1){
     Serial.print("Threshold black is :");
     Serial.println(threshold_black);
     Serial.print("Threshold white is :");
-    Serial.println(threshold_white);
-    calibration_done = 1;
+    Serial.println(threshold_white);  
+}
+*/
+    
+    calibration_done = 1;       
 }
 
 
@@ -244,9 +296,12 @@ void loop()
         if(PowerUp_Characteristic.value() == 2)
        {
          Serial.println("Pew Pew");
+         
          digitalWrite(laser_diode, HIGH);       
          // Add pew pew code here
          previous_time = millis();
+         Serial.print("Powerup picked :");
+         Serial.println(powerup_picked);
        }
     }
 
@@ -298,6 +353,8 @@ void loop()
        powerup_picked = 1;
        PowerUp_Characteristic.setValue(1);
        previous_time = millis(); 
+       Serial.print("PowerUP picked and the value of Count is - ");
+       Serial.println(count);
     } else {
       digitalWrite(led_thresh, LOW);
     } // if (count == transitions)
@@ -308,12 +365,14 @@ void loop()
         current_time = millis();
         if (current_time - previous_time  > powerup_detect_interval){          
           PowerUp_Characteristic.setValue(0);
+          Serial.println("PowerUp has stopped transmitting");
         }
       } else if (PowerUp_Characteristic.value() == 2){
         current_time = millis();
         if (current_time - previous_time  > laser_interval){          
           PowerUp_Characteristic.setValue(0);
           digitalWrite(laser_diode, LOW);
+          Serial.println("Laser time expired. Turning Off!");
           powerup_picked = 0;
           }
       }
@@ -338,28 +397,6 @@ void loop()
 } // void loop()
 
 
-/*
-millis();
 
-// debug code, to be removed
-    if(digitalRead(debug_pin))
-    {
-      PowerUp_Characteristic.setValue(1);
-      Serial.println("Button pressed");
-    }
-    else
-    {
-      PowerUp_Characteristic.setValue(0);
-    }
-
-    if(PowerUp_Characteristic.written())
-    {
-      if(PowerUp_Characteristic.value() == 2)
-      {
-        Serial.println("Pew Pew");
-        // Add pew pew code here
-      }
-    }
-*/
 
  
