@@ -59,11 +59,11 @@ const int laser_interval = 5000; // laser turn on interval
 int color_transition_count = 0;
 int black_color_detected;
 int white_color_detected;
-int IR_receiver_reading; 
+int IR_receiver_reading;
 int calibration_done = 0;
 long int current_time, previous_time;
 int black_color_threshold; // < ~200
-int white_color_threshold; // > ~900 
+int white_color_threshold; // > ~900
 int laser_on = 0;
 
 //////////////////////////////////////
@@ -78,7 +78,7 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
   //Convert 0-100% to analog values 0-255
   MotorSpeedA = map(MotorSpeedA, 0, 100, 0, 255);
   MotorSpeedB = map(MotorSpeedB, 0, 100, 0, 255);
-  
+
   // Speed
   Wire.beginTransmission(I2C_MotorDriver_Addr); // transmit to specified address
   Wire.write(MotorSpeedSet);                    // set pwm header
@@ -103,24 +103,24 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
 void IR_calibration()
 {
   int avg = 0; int sum = 0; int a;
-  for(a = 1; a < 1001; a++)
+  for (a = 1; a < 1001; a++)
   {
-     sum = sum + analogRead(ir_receiver_pin);
-     delay(1);  
+    sum = sum + analogRead(ir_receiver_pin);
+    delay(1);
   }
 
-    // white numbers are usually higher. 150 and 750 are arbitrary number
-    avg = sum/a;
-    black_color_threshold = avg + 150;
-    white_color_threshold = avg + 750;
+  // white numbers are usually higher. 150 and 750 are arbitrary number
+  avg = sum / a;
+  black_color_threshold = avg + 150;
+  white_color_threshold = avg + 750;
 
-    Serial.print("Black color threshold: ");
-    Serial.println(black_color_threshold);
+  Serial.print("Black color threshold: ");
+  Serial.println(black_color_threshold);
 
-    Serial.print("White color threshold: ");
-    Serial.println(white_color_threshold);
+  Serial.print("White color threshold: ");
+  Serial.println(white_color_threshold);
 
-    calibration_done = 1;
+  calibration_done = 1;
 }
 
 /////////////////////////////////
@@ -141,19 +141,19 @@ void setup()
 {
   // Setting up serial connection
   Serial.begin(9600);
-  
+
   // join i2c bus (address optional for master)
-  Wire.begin(); 
-  
+  Wire.begin();
+
   // wait to make sure I2C is initialized
-  delayMicroseconds(2000); 
+  delayMicroseconds(2000);
 
   // specifying connection LED pin as output
   pinMode(connect_led_pin, OUTPUT);
-  
-  // specifying power up LED pin as output 
+
+  // specifying power up LED pin as output
   pinMode(power_up_led_pin, OUTPUT);
- 
+
   // specifying laser diode pin as output
   pinMode(laser_diode_pin, OUTPUT);
 
@@ -174,26 +174,72 @@ void setup()
 // Main loop //
 //////////////
 
-void loop() 
+void loop()
 {
-  
+
   // Keep polling over the Peripheral
   BLE_Peripheral.poll();
 
   // Check BLE connection and turn on LED when connected else OFF
   if (BLE_Peripheral.connected())
   {
-    if(calibration_done == 0)
+    if (calibration_done == 0)
     {
-       IR_calibration();
+      IR_calibration();
     }
-    
+
     // Turn on connection LED
     digitalWrite(connect_led_pin, HIGH);
-    
+
     //Check if Directional buttons on App are pressed
     Rover_Direction_Control();
-    
+
+    // If App writes to powerup characteristic
+    if (PowerUp_Characteristic.written() && (PowerUp_Characteristic.value() == 2))
+    {
+      Serial.println("Laser Fired");
+      digitalWrite(laser_diode_pin, HIGH);
+      laser_on = 1;
+
+      // non blocking delay to keep laser on for a set duration
+      previous_time = millis();
+    }
+
+    current_time = millis();
+    if ((current_time >= previous_time + laser_interval) && laser_on)
+    {
+      Serial.println("Laser turned off");
+      digitalWrite(laser_diode_pin, LOW);
+      laser_on = 0;
+    }
+
+    // IR receiver logic to detect color transitions
+    IR_receiver_reading = analogRead(ir_receiver_pin);
+    if ((IR_receiver_reading < black_color_threshold) && calibration_done)
+    {
+      black_color_detected = 1;
+    }
+    else if ((IR_receiver_reading > white_color_threshold) && calibration_done)
+    {
+      white_color_detected = 1;
+    }
+
+    if (white_color_detected && black_color_detected)
+    {
+      color_transition_count++;
+      Serial.print("Count: ");
+      Serial.println(color_transition_count);
+
+      white_color_detected = 0;
+      black_color_detected = 0;
+    }
+
+    if (color_transition_count == color_transitions)
+    {
+      PowerUp_Characteristic.setValue(1);
+      color_transition_count = 0;
+    }
+
   } // if (BLE_Peripheral.connected())
   else
   {
@@ -203,51 +249,6 @@ void loop()
     // Turn off all Motors (to be safe)
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
-  } 
-
-  // If App writes to powerup characteristic
-  if(PowerUp_Characteristic.written() && (PowerUp_Characteristic.value() == 2))
-  {
-     Serial.println("Laser Fired");
-     digitalWrite(laser_diode_pin, HIGH);       
-     laser_on = 1;
-     
-     // non blocking delay to keep laser on for a set duration
-     previous_time = millis();
-  }
-
-  current_time = millis();
-  if((current_time >= previous_time + laser_interval) && laser_on)
-  {
-    Serial.println("Laser turned off");
-    digitalWrite(laser_diode_pin, LOW);
-    laser_on = 0;       
-  }
-
-  // IR receiver logic to detect color transitions
-  IR_receiver_reading = analogRead(ir_receiver_pin);
-  if((IR_receiver_reading < black_color_threshold) && calibration_done)
-  {
-     black_color_detected = 1;
-  }
-  else if((IR_receiver_reading > white_color_threshold) && calibration_done)
-  {
-     white_color_detected = 1;
-  }
-
-  if(white_color_detected && black_color_detected)
-  {
-     color_transition_count++; 
-     Serial.print("Count: ");
-     Serial.println(color_transition_count);
-
-     white_color_detected = 0;
-     black_color_detected = 0;
-  }
-
-  if(color_transition_count == color_transitions)
-  {
-    PowerUp_Characteristic.setValue(1);
   }
 
 } // void loop()
@@ -259,49 +260,49 @@ void loop()
 
 void Rover_Direction_Control()
 {
-if (Direction_Characteristic.written())
+  if (Direction_Characteristic.written())
+  {
+    switch (Direction_Characteristic.value())
     {
-      switch (Direction_Characteristic.value())
-      {
       case 1:
-      {
-        // UP
-        Serial.println("Moving Forward");
-        Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_left_Addr);
-        break;
-      }
+        {
+          // UP
+          Serial.println("Moving Forward");
+          Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_right_Addr);
+          Set_MotorSpeed_and_direction(40, 40, 0b1010, I2CMotorDriver_left_Addr);
+          break;
+        }
       case 2:
-      {
-        // RIGHT
-        Serial.println("Moving Right");
-        Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_left_Addr);
-        break;
-      }
+        {
+          // RIGHT
+          Serial.println("Moving Right");
+          Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_right_Addr);
+          Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_left_Addr);
+          break;
+        }
       case 3:
-      {
-        // DOWN
-        Serial.println("Moving Backwards");
-        Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_left_Addr);
-        break;
-      }
+        {
+          // DOWN
+          Serial.println("Moving Backwards");
+          Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_right_Addr);
+          Set_MotorSpeed_and_direction(40, 40, 0b0101, I2CMotorDriver_left_Addr);
+          break;
+        }
       case 4:
-      {
-        // LEFT
-        Serial.println("Moving Left");
-        Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_left_Addr);
-        break;
-      }
+        {
+          // LEFT
+          Serial.println("Moving Left");
+          Set_MotorSpeed_and_direction(1, 1, 0b0101, I2CMotorDriver_right_Addr);
+          Set_MotorSpeed_and_direction(100, 100, 0b1010, I2CMotorDriver_left_Addr);
+          break;
+        }
       default:
-      {
-        // OFF
-        Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
-        Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
-        break;
-      }
-      } // switch  
-    } // if(Direction_Characteristic.written())
+        {
+          // OFF
+          Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+          Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
+          break;
+        }
+    } // switch
+  } // if(Direction_Characteristic.written())
 }
