@@ -61,7 +61,7 @@ int black_color_detected = 0;    // black color detection flag
 int white_color_detected = 0;    // white color detection flag
 int IR_receiver_reading = 0;     // used for reading IR receiver
 int calibration_done = 0;        // calibration completion flag
-long int current_time = 0;       
+long int current_time = 0;
 long int previous_time = 0;
 int black_color_threshold = 0; // < ~200, actual values come from calibration
 int white_color_threshold = 0; // > ~900, actual values come from calibration
@@ -105,6 +105,7 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
 void IR_calibration()
 {
   int avg = 0; int sum = 0; int a;
+
   for (a = 1; a < 1001; a++)
   {
     sum = sum + analogRead(ir_receiver_pin);
@@ -113,14 +114,41 @@ void IR_calibration()
 
   // white numbers are usually higher. 150 and 750 are arbitrary number
   avg = sum / a;
-  black_color_threshold = avg + 150;
-  white_color_threshold = avg + 750;
-
-  Serial.print("Black color threshold: ");
-  Serial.println(black_color_threshold);
+  white_color_threshold = avg - 20 ;
 
   Serial.print("White color threshold: ");
   Serial.println(white_color_threshold);
+
+  avg = 0;
+  sum = 0;
+
+  Serial.println("Moving Forward");
+  Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_right_Addr);
+  Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_left_Addr);
+
+  // Move forward till you find black
+  while (analogRead(ir_receiver_pin) > 300) {
+    avg = 0;
+  }
+
+  Serial.println("Stopping");
+  Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
+  Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
+
+  delay(500);
+
+  for (a = 1; a < 1001; a++)
+  {
+    sum = sum + analogRead(ir_receiver_pin);
+    delay(1);
+  }
+
+  // white numbers are usually higher. 150 and 750 are arbitrary number
+  avg = sum / a;
+  black_color_threshold = avg + 20 ;
+
+  Serial.print("Black color threshold: ");
+  Serial.println(black_color_threshold);
 
   calibration_done = 1;
 }
