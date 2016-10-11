@@ -44,11 +44,11 @@
 // Pin list //
 /////////////
 
-const int connect_led_pin = 13;  // pin used for connect status LED
+const int connect_led_pin = 2;  // pin used for connect status LED. Doubles up as Calibration failed
 const int ir_receiver_pin = 0;   // pin being used to read from IR receiver
-const int power_up_led_pin = 12; // pin used for powerup notification (may not get used)
-const int laser_diode_pin = 2;   // pin used for connecting laser powerup
-
+//const int power_up_led_pin = 12; // pin used for powerup notification (may not get used)
+const int laser_diode_pin = 9;   // pin used for connecting laser powerup
+const int IR_transmitter_pin = 13;// pin for transmitting IR - ON only when connected
 
 ///////////////////////
 // Global Variables //
@@ -67,6 +67,7 @@ int black_color_threshold = 0; // < ~200, actual values come from calibration
 int white_color_threshold = 0; // > ~900, actual values come from calibration
 int laser_on = 0;              // laser powerup used flag
 int powerup_received = 0;      // flag to monitor laser powerup
+const int min_color_difference = 400; // Min difference between black and white thresholds
 
 //////////////////////////////////////
 // Motor Speed  and direction task //
@@ -100,7 +101,8 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
 ///////////////////////
 // Calibration task //
 /////////////////////
-
+BLEIntCharacteristic white_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11beef", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
+BLEIntCharacteristic black_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11dead", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
 // Task to Calibrate black threshold using a black sheet of paper before operating
 void IR_calibration()
 {
@@ -114,7 +116,7 @@ void IR_calibration()
 
   // white numbers are usually higher. 150 and 750 are arbitrary number
   avg = sum / a;
-  white_color_threshold = avg - 20 ;
+  white_color_threshold = avg - 40 ;
 
   Serial.print("White color threshold: ");
   Serial.println(white_color_threshold);
@@ -127,9 +129,11 @@ void IR_calibration()
   Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_left_Addr);
 
   // Move forward till you find black
-  while (analogRead(ir_receiver_pin) > 300) {
+  while (analogRead(ir_receiver_pin) > 200) {
     avg = 0;
   }
+
+  //delay(10);//Get closer to centre
 
   Serial.println("Stopping");
   Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
@@ -143,13 +147,28 @@ void IR_calibration()
     delay(1);
   }
 
-  // white numbers are usually higher. 150 and 750 are arbitrary number
+  
   avg = sum / a;
-  black_color_threshold = avg + 20 ;
+  black_color_threshold = avg + 40 ;
 
   Serial.print("Black color threshold: ");
   Serial.println(black_color_threshold);
 
+    
+  if ((white_color_threshold - black_color_threshold) < min_color_difference){
+// If calibration failed
+    while(1){
+      digitalWrite(connect_led_pin, HIGH);
+      delay(400);
+      digitalWrite(connect_led_pin, LOW);
+      delay(400);
+    }
+    
+  }
+  
+  white_Characteristic.setValue((white_color_threshold/4));
+  black_Characteristic.setValue(black_color_threshold); 
+  
   calibration_done = 1;
 }
 
@@ -161,6 +180,8 @@ BLEPeripheral BLE_Peripheral;                                                   
 BLEService Intel_4wd_Rover_Service("da699607-dbc2-4776-82f6-80011575daa0");                                // Create Intel  4wd Rover Service with some uuid
 BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite); // Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
 BLEIntCharacteristic PowerUp_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11c2fd", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
+
+
 
 
 /////////////////
@@ -182,10 +203,15 @@ void setup()
   pinMode(connect_led_pin, OUTPUT);
 
   // specifying power up LED pin as output
-  pinMode(power_up_led_pin, OUTPUT);
+  //pinMode(power_up_led_pin, OUTPUT);
 
-  // specifying laser diode pin as output
-  pinMode(laser_diode_pin, OUTPUT);
+  // specifying laser diode pin as output - Is now PWM output - not required
+  //pinMode(laser_diode_pin, OUTPUT);
+  analogWrite(laser_diode_pin, 0);
+
+  // specifying IR transmitter pin as output
+  pinMode(IR_transmitter_pin, OUTPUT);  
+
 
   // Set Local name for BLE Peripheral
   BLE_Peripheral.setLocalName("Intel_4WD_Rover_1");
@@ -194,7 +220,8 @@ void setup()
   BLE_Peripheral.addAttribute(Intel_4wd_Rover_Service);
   BLE_Peripheral.addAttribute(Direction_Characteristic);
   BLE_Peripheral.addAttribute(PowerUp_Characteristic);
-
+  BLE_Peripheral.addAttribute(white_Characteristic);
+  BLE_Peripheral.addAttribute(black_Characteristic);
   // Start advertising the service
   BLE_Peripheral.begin();
 }
@@ -213,14 +240,16 @@ void loop()
   // Check BLE connection before executing any code
   if (BLE_Peripheral.connected())
   {
+    // Turn on connection LED
+    digitalWrite(connect_led_pin, HIGH);
+    digitalWrite(IR_transmitter_pin, HIGH);
+
     // do IR calibration to get threshold values
     if (calibration_done == 0)
     {
       IR_calibration();
     }
 
-    // Turn on connection LED
-    digitalWrite(connect_led_pin, HIGH);
 
     //Check if Directional buttons on App are pressed
     Rover_Direction_Control();
@@ -229,7 +258,8 @@ void loop()
     if (PowerUp_Characteristic.written() && (PowerUp_Characteristic.value() == 2))
     {
       Serial.println("Laser Fired");
-      digitalWrite(laser_diode_pin, HIGH);
+      //digitalWrite(laser_diode_pin, HIGH);
+      analogWrite(laser_diode_pin, 175);
       laser_on = 1;
       // non blocking delay to keep laser on for a set duration
       previous_time = millis();
@@ -239,7 +269,8 @@ void loop()
     if ((current_time >= previous_time + laser_interval) && laser_on)
     {
       Serial.println("Laser turned off");
-      digitalWrite(laser_diode_pin, LOW);
+      //digitalWrite(laser_diode_pin, LOW);
+      analogWrite(laser_diode_pin, 0);
       laser_on = 0;
       powerup_received = 0;
       color_transition_count = 0;
