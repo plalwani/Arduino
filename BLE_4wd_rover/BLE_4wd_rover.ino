@@ -179,7 +179,7 @@ void IR_calibration()
 BLEPeripheral BLE_Peripheral;                                                                              // BLE peripheral instance
 BLEService Intel_4wd_Rover_Service("da699607-dbc2-4776-82f6-80011575daa0");                                // Create Intel  4wd Rover Service with some uuid
 BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite); // Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
-BLEIntCharacteristic PowerUp_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11c2fd", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
+BLEIntCharacteristic PowerUp_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11c2fd", BLERead | BLEWrite | BLENotify);   // Characterisitic (type Int) for power-ups
 
 
 
@@ -216,12 +216,23 @@ void setup()
   // Set Local name for BLE Peripheral
   BLE_Peripheral.setLocalName("Intel_4WD_Rover_1");
 
+  // set uuid for the service being advertised
+  BLE_Peripheral.setAdvertisedServiceUuid(Intel_4wd_Rover_Service.uuid());
+  
   // add service and characterisitics
   BLE_Peripheral.addAttribute(Intel_4wd_Rover_Service);
-  BLE_Peripheral.addAttribute(Direction_Characteristic);
   BLE_Peripheral.addAttribute(PowerUp_Characteristic);
+
   BLE_Peripheral.addAttribute(white_Characteristic);
   BLE_Peripheral.addAttribute(black_Characteristic);
+
+  BLE_Peripheral.addAttribute(Direction_Characteristic);
+  
+  // Initialize all characteristics to zero
+  PowerUp_Characteristic.setValue(0);
+  Direction_Characteristic.setValue(0);
+  
+
   // Start advertising the service
   BLE_Peripheral.begin();
 }
@@ -299,8 +310,8 @@ void loop()
 
     if ((color_transition_count == color_transitions) && (powerup_received == 0))
     {
-      PowerUp_Characteristic.setValue(1);
       powerup_received = 1;
+      PowerUp_Characteristic.setValue(powerup_received);
     }
 
   } // if (BLE_Peripheral.connected())
