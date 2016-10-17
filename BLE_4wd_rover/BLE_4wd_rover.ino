@@ -284,7 +284,7 @@ void Laser_Direction_Control()
   {
     Serial.print("updating servo position with value ");
     Serial.println(Servo_Characteristic.value());
-    myservo.write(Servo_Characteristic.value());
+    myservo.write((180-Servo_Characteristic.value())); // Subtracting from 180 to align the directions between App's slider and rotation of servo.
     delay(15);
   }
 }
