@@ -45,29 +45,17 @@
 /////////////
 
 const int connect_led_pin = 2;  // pin used for connect status LED. Doubles up as Calibration failed
-const int ir_receiver_pin = 0;   // pin being used to read from IR receiver
-//const int power_up_led_pin = 12; // pin used for powerup notification (may not get used)
 const int laser_diode_pin = 9;   // pin used for connecting laser powerup
-const int IR_transmitter_pin = 13;// pin for transmitting IR - ON only when connected
+const int servo_pin = 14;// pin for controlling servo (Note: servo lib considers pin 14 as A0, servo actually connected to A0)
 
 ///////////////////////
 // Global Variables //
 /////////////////////
 
-const int color_transitions = 4; // powerup pattern (black and white stripes)
-const int laser_interval = 5000; // laser turn on interval
-int color_transition_count = 0;  // counter to count the # of transitions of black/white color pair
-int black_color_detected = 0;    // black color detection flag
-int white_color_detected = 0;    // white color detection flag
-int IR_receiver_reading = 0;     // used for reading IR receiver
-int calibration_done = 0;        // calibration completion flag
+const int laser_interval =10000; // laser turn on interval
 long int current_time = 0;
 long int previous_time = 0;
-int black_color_threshold = 0; // < ~200, actual values come from calibration
-int white_color_threshold = 0; // > ~900, actual values come from calibration
 int laser_on = 0;              // laser powerup used flag
-int powerup_received = 0;      // flag to monitor laser powerup
-const int min_color_difference = 400; // Min difference between black and white thresholds
 
 //////////////////////////////////////
 // Motor Speed  and direction task //
@@ -98,90 +86,15 @@ void Set_MotorSpeed_and_direction(unsigned char MotorSpeedA, unsigned char Motor
 }
 
 
-///////////////////////
-// Calibration task //
-/////////////////////
-BLEIntCharacteristic white_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11beef", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
-BLEIntCharacteristic black_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11dead", BLERead | BLEWrite);   // Characterisitic (type Int) for power-ups
-// Task to Calibrate black threshold using a black sheet of paper before operating
-void IR_calibration()
-{
-  int avg = 0; int sum = 0; int a;
-
-  for (a = 1; a < 1001; a++)
-  {
-    sum = sum + analogRead(ir_receiver_pin);
-    delay(1);
-  }
-
-  // white numbers are usually higher. 150 and 750 are arbitrary number
-  avg = sum / a;
-  white_color_threshold = avg - 40 ;
-
-  Serial.print("White color threshold: ");
-  Serial.println(white_color_threshold);
-
-  avg = 0;
-  sum = 0;
-
-  Serial.println("Moving Forward");
-  Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_right_Addr);
-  Set_MotorSpeed_and_direction(20, 20, 0b1010, I2CMotorDriver_left_Addr);
-
-  // Move forward till you find black
-  while (analogRead(ir_receiver_pin) > 200) {
-    avg = 0;
-  }
-
-  //delay(10);//Get closer to centre
-
-  Serial.println("Stopping");
-  Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
-  Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
-
-  delay(500);
-
-  for (a = 1; a < 1001; a++)
-  {
-    sum = sum + analogRead(ir_receiver_pin);
-    delay(1);
-  }
-
-  
-  avg = sum / a;
-  black_color_threshold = avg + 40 ;
-
-  Serial.print("Black color threshold: ");
-  Serial.println(black_color_threshold);
-
-    
-  if ((white_color_threshold - black_color_threshold) < min_color_difference){
-// If calibration failed
-    while(1){
-      digitalWrite(connect_led_pin, HIGH);
-      delay(400);
-      digitalWrite(connect_led_pin, LOW);
-      delay(400);
-    }
-    
-  }
-  
-  white_Characteristic.setValue((white_color_threshold/4));
-  black_Characteristic.setValue(black_color_threshold); 
-  
-  calibration_done = 1;
-}
-
 /////////////////////////////////
 // BLE handle and definitions //
 ///////////////////////////////
 
-BLEPeripheral BLE_Peripheral;                                                                              // BLE peripheral instance
-BLEService Intel_4wd_Rover_Service("da699607-dbc2-4776-82f6-80011575daa0");                                // Create Intel  4wd Rover Service with some uuid
-BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite); // Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
-BLEIntCharacteristic PowerUp_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11c2fd", BLERead | BLEWrite | BLENotify);   // Characterisitic (type Int) for power-ups
-
-
+BLEPeripheral BLE_Peripheral;                                                                                        // BLE peripheral instance
+BLEService Intel_4wd_Rover_Service("da699607-dbc2-4776-82f6-80011575daa0");                                          // Create Intel  4wd Rover Service with some uuid
+BLEIntCharacteristic Direction_Characteristic("2895b648-99c4-46c5-911e-5adfcd8d821e", BLERead | BLEWrite);           // Characterisitic (type Int) for directions. 1-up,2-right,3-down,4-left
+BLEIntCharacteristic Laser_Characteristic("6fe8cac0-3d98-4a4d-bca4-71a85e11c2fd", BLERead | BLEWrite | BLENotify);   // Characterisitic (type Int) for laser
+BLEIntCharacteristic Servo_Characteristic("ef4b54ab-ea85-44cc-be7a-4ee2871b4f42", BLERead | BLEWrite | BLENotify);   // Characterisitic (type Int) for laser
 
 
 /////////////////
@@ -197,41 +110,27 @@ void setup()
   Wire.begin();
 
   // wait to make sure I2C is initialized
-  delayMicroseconds(2000);
+  delayMicroseconds(10000);
 
   // specifying connection LED pin as output
   pinMode(connect_led_pin, OUTPUT);
 
-  // specifying power up LED pin as output
-  //pinMode(power_up_led_pin, OUTPUT);
-
-  // specifying laser diode pin as output - Is now PWM output - not required
-  //pinMode(laser_diode_pin, OUTPUT);
+  // Setting laser to be off by default
   analogWrite(laser_diode_pin, 0);
 
-  // specifying IR transmitter pin as output
-  pinMode(IR_transmitter_pin, OUTPUT);  
-
-
   // Set Local name for BLE Peripheral
-  BLE_Peripheral.setLocalName("Intel_4WD_Rover_1");
-
-  // set uuid for the service being advertised
-  BLE_Peripheral.setAdvertisedServiceUuid(Intel_4wd_Rover_Service.uuid());
+  BLE_Peripheral.setLocalName("Intel_4WD_Rover");
   
   // add service and characterisitics
   BLE_Peripheral.addAttribute(Intel_4wd_Rover_Service);
-  BLE_Peripheral.addAttribute(PowerUp_Characteristic);
-
-  BLE_Peripheral.addAttribute(white_Characteristic);
-  BLE_Peripheral.addAttribute(black_Characteristic);
-
+  BLE_Peripheral.addAttribute(Laser_Characteristic);
+  BLE_Peripheral.addAttribute(Servo_Characteristic);
   BLE_Peripheral.addAttribute(Direction_Characteristic);
   
   // Initialize all characteristics to zero
-  PowerUp_Characteristic.setValue(0);
+  Laser_Characteristic.setValue(0);
   Direction_Characteristic.setValue(0);
-  
+  Servo_Characteristic.setValue(0);
 
   // Start advertising the service
   BLE_Peripheral.begin();
@@ -244,7 +143,6 @@ void setup()
 
 void loop()
 {
-
   // Keep polling over the Peripheral
   BLE_Peripheral.poll();
 
@@ -253,78 +151,28 @@ void loop()
   {
     // Turn on connection LED
     digitalWrite(connect_led_pin, HIGH);
-    digitalWrite(IR_transmitter_pin, HIGH);
-
-    // do IR calibration to get threshold values
-    if (calibration_done == 0)
-    {
-      IR_calibration();
-    }
-
 
     //Check if Directional buttons on App are pressed
     Rover_Direction_Control();
 
     // If App writes to powerup characteristic
-    if (PowerUp_Characteristic.written() && (PowerUp_Characteristic.value() == 2))
-    {
-      Serial.println("Laser Fired");
-      //digitalWrite(laser_diode_pin, HIGH);
-      analogWrite(laser_diode_pin, 175);
-      laser_on = 1;
-      // non blocking delay to keep laser on for a set duration
-      previous_time = millis();
-    }
-    current_time = millis();
-    // Turn off laser after set amount of time
-    if ((current_time >= previous_time + laser_interval) && laser_on)
-    {
-      Serial.println("Laser turned off");
-      //digitalWrite(laser_diode_pin, LOW);
-      analogWrite(laser_diode_pin, 0);
-      laser_on = 0;
-      powerup_received = 0;
-      color_transition_count = 0;
-    }
-
-    // IR receiver logic to detect color transitions
-    IR_receiver_reading = analogRead(ir_receiver_pin);
-    if ((IR_receiver_reading < black_color_threshold) && calibration_done)
-    {
-      black_color_detected = 1;
-    }
-    else if ((IR_receiver_reading > white_color_threshold) && calibration_done)
-    {
-      white_color_detected = 1;
-    }
-
-    if (white_color_detected && black_color_detected)
-    {
-      color_transition_count++;
-      Serial.print("Count: ");
-      Serial.println(color_transition_count);
-
-      white_color_detected = 0;
-      black_color_detected = 0;
-    }
-
-    if ((color_transition_count == color_transitions) && (powerup_received == 0))
-    {
-      powerup_received = 1;
-      PowerUp_Characteristic.setValue(powerup_received);
-    }
-
+    Laser_Control();
+    
   } // if (BLE_Peripheral.connected())
   else
   {
     // Turn off connection LED
     digitalWrite(connect_led_pin, LOW);
-
+    
     // Turn off all Motors (to be safe)
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
     Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
-  }
 
+    // Turn off Laser
+    laser_on = 0;
+    analogWrite(laser_diode_pin, 0);
+    // Move servo to 90 degrees
+  }
 } // void loop()
 
 
@@ -380,3 +228,32 @@ void Rover_Direction_Control()
     } // switch
   } // if(Direction_Characteristic.written())
 }
+
+
+////////////////////
+// Laser Control //
+//////////////////
+
+void Laser_Control()
+{
+  if(Laser_Characteristic.written() && (Laser_Characteristic.value() == 1))
+    {
+      Serial.println("Laser Fired");
+      analogWrite(laser_diode_pin, 128);
+      laser_on = 1;
+      // non blocking delay to keep laser on for a set duration
+      previous_time = millis();
+    }
+    
+    current_time = millis();
+    // Turn off laser after set amount of time
+    if ((current_time >= previous_time + laser_interval) && laser_on)
+    {
+      Serial.println("Laser turned off");
+      //digitalWrite(laser_diode_pin, LOW);
+      analogWrite(laser_diode_pin, 0);
+      laser_on = 0;
+    }
+}
+
+
