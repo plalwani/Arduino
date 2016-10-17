@@ -22,6 +22,9 @@
 #include <CurieBLE.h>
 // I2C Library
 #include <Wire.h>
+// Servo Library
+#include <Servo.h>
+Servo myservo;  // create servo object to control a servo
 
 
 //////////////
@@ -117,6 +120,13 @@ void setup()
 
   // Setting laser to be off by default
   analogWrite(laser_diode_pin, 0);
+  
+  // attach the servo on pin A0 (A0 is 14 in servo library) to the servo object
+  myservo.attach(servo_pin);  
+
+  // Setup the servo to be center aligned
+  myservo.write(90);
+  delay(15);
 
   // Set Local name for BLE Peripheral
   BLE_Peripheral.setLocalName("Intel_4WD_Rover");
@@ -157,6 +167,9 @@ void loop()
 
     // If App writes to powerup characteristic
     Laser_Control();
+
+    // Check to see if App updated Laser direction
+    Laser_Direction_Control();
     
   } // if (BLE_Peripheral.connected())
   else
@@ -171,7 +184,10 @@ void loop()
     // Turn off Laser
     laser_on = 0;
     analogWrite(laser_diode_pin, 0);
+    
     // Move servo to 90 degrees
+    myservo.write(90);
+    delay(15);
   }
 } // void loop()
 
@@ -221,6 +237,7 @@ void Rover_Direction_Control()
       default:
         {
           // OFF
+          Serial.println("Turning Off all motors");
           Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_right_Addr);
           Set_MotorSpeed_and_direction(0, 0, 0b1010, I2CMotorDriver_left_Addr);
           break;
@@ -256,4 +273,19 @@ void Laser_Control()
     }
 }
 
+//////////////////////////////
+// Servo Direction Control //
+////////////////////////////
+
+void Laser_Direction_Control()
+{
+  // update angle with new value
+  if(Servo_Characteristic.written())
+  {
+    Serial.print("updating servo position with value ");
+    Serial.println(Servo_Characteristic.value());
+    myservo.write(Servo_Characteristic.value());
+    delay(15);
+  }
+}
 
