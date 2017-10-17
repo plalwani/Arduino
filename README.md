@@ -1,2 +1,2 @@
-# arduino_grove_demos
-Grove seeed kit based demos for middle and high school
+# Arduino demos
+Simple Arduino demos for beginners that I use in my tutorials and workshops
