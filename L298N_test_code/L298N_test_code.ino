@@ -35,7 +35,8 @@ void loop() {
     digitalWrite(motor_driver[i][1],HIGH);
     delay(5000); //delay 5 seconds
     // STOP motor
-    digitalWrite(motor_driver[i][2],LOW);
+    analogWrite(motor_driver[i][2],0);
+    delay(5000);
   }
   
 }
